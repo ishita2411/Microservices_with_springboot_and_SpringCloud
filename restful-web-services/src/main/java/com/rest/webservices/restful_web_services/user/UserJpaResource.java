@@ -1,5 +1,6 @@
 package com.rest.webservices.restful_web_services.user;
 
+import com.rest.webservices.restful_web_services.jpa.PostRepository;
 import com.rest.webservices.restful_web_services.jpa.UserRepository;
 import jakarta.validation.Valid;
 import org.springframework.hateoas.EntityModel;
@@ -18,13 +19,15 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 @RestController
 public class UserJpaResource {
 
-    private UserDaoService service;
+//    private UserDaoService service;
 
     private UserRepository repository;
+    private PostRepository postRepository;
 
-    public UserJpaResource(UserRepository repository){
+    public UserJpaResource(UserRepository repository, PostRepository postRepository){
 
         this.repository = repository;
+        this.postRepository = postRepository;
     }
     @GetMapping("/jpa/users")
     public List<User> RetriveAllUsers(){
@@ -44,6 +47,38 @@ public class UserJpaResource {
         entityModel.add(link.withRel("all-users"));
         return entityModel;
     }
+
+    @GetMapping("/jpa/users/{id}/posts")
+    public List<Post> retrievePostsForUser(@PathVariable Integer id){
+
+        Optional<User> user = repository.findById(id);
+        if (user.isEmpty()){
+            throw new UserNotFoundException("id : " + id);
+        }
+
+        return user.get().getPosts();
+
+
+    }
+
+    @PostMapping("/jpa/users/{id}/posts")
+    public ResponseEntity<Object> createPostsForUser(@PathVariable Integer id,@Valid @RequestBody Post post){
+
+        Optional<User> user = repository.findById(id);
+        if (user.isEmpty()){
+            throw new UserNotFoundException("id : " + id);
+        }
+
+        post.setUser(user.get());
+
+        Post savedPost = postRepository.save(post);
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(savedPost.getId()).toUri();
+        return ResponseEntity.created(location).build();
+
+
+
+    }
+
 
     @PostMapping("/jpa/users")
     public ResponseEntity<Object> AddNewUser(@Valid  @RequestBody User user){
